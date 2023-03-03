@@ -196,6 +196,46 @@ async function getPostsByUser(userId) {
   }
 }
 
+async function createTags(tagList) {
+  if (tagList.length === 0) { 
+    return; 
+  }
+
+  // need something like: $1), ($2), ($3 
+  const insertValues = tagList.map(
+    (_, index) => `$${index + 1}`).join('), (');
+  // then we can use: (${ insertValues }) in our string template
+
+  // need something like $1, $2, $3
+  const selectValues = tagList.map(
+    (_, index) => `$${index + 1}`).join(', ');
+  // then we can use (${ selectValues }) in our string template
+
+  try {
+    // insert the tags, doing nothing on conflict
+    // returning nothing, we'll query after
+    `INSERT INTO tags(name)
+    VALUES ${insertValues}
+    ON CONFLICT (name) DO NOTHING;
+    RETURNING *;
+  `,
+    `INSERT INTO tags(name)
+    VALUES ${selectValues}
+    ON CONFLICT (name) DO NOTHING;
+    RETURNING *;`
+    // select all tags where the name is in our taglist
+    // return the rows from the query
+    ,`SELECT * FROM tags
+    WHERE name
+    IN ('#tag', '#othertag', '#moretag');`
+    ,`SELECT * FROM tags
+    WHERE name
+    IN ($1, $2, $3);`
+  } catch (error) {
+    throw error;
+  }
+}
+
 async function createPostTag(postId, tagId) {
   try {
     await client.query(`
