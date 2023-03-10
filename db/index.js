@@ -95,7 +95,7 @@ async function createPost({
   authorId,
   title,
   content,
-  tags = [] // this is new
+  tags = []
 }) {
   try {
     const { rows: [ post ] } = await client.query(`
@@ -105,7 +105,7 @@ async function createPost({
     `, [authorId, title, content]);
 
     const tagList = await createTags(tags);
-    console.log("String 2", tagList)
+
     return await addTagsToPost(post.id, tagList);
   } catch (error) {
     throw error;
@@ -198,36 +198,37 @@ async function getPostsByUser(userId) {
 }
 
 async function createTags(tagList) {
-  if (tagList.length === 0) { 
-    return; 
+  if (tagList.length === 0) {
+    return [ ];
   }
 
-  // need something like: $1), ($2), ($3 
-  const insertValues = tagList.map(
-    (_, index) => `$${index + 1}`).join('), (');
-  // then we can use: (${ insertValues }) in our string template
+  const valuesStringInsert = tagList.map(
+    (_, index) => `$${index + 1}`
+  ).join('), (');
 
-  // need something like $1, $2, $3
-  const selectValues = tagList.map(
-    (_, index) => `$${index + 1}`).join(', ');
-  // then we can use (${ selectValues }) in our string template
+  const valuesStringSelect = tagList.map(
+    (_, index) => `$${index + 1}`
+  ).join(', ');
 
   try {
-    // insert the tags, doing nothing on conflict
-    // returning nothing, we'll query after
-    const { rows: [ post_tags ]  } = await client.query(
-    `INSERT INTO tags(name)
-    VALUES ${ tagList }
-    ON CONFLICT (name) DO NOTHING;
-    RETURNING *;
-    `, [tagList]);
-    // select all tags where the name is in our taglist
-    // return the rows from the query
-    return post_tags
+    // insert all, ignoring duplicates
+    await client.query(`
+      INSERT INTO tags(name)
+      VALUES (${ valuesStringInsert })
+      ON CONFLICT (name) DO NOTHING;
+    `, tagList);
+
+    // grab all and return
+    const { rows } = await client.query(`
+      SELECT * FROM tags
+      WHERE name
+      IN (${ valuesStringSelect });
+    `, tagList);
+
+    return rows;
   } catch (error) {
     throw error;
   }
-  console.log("String 5", post_tags)
 }
 
 async function createPostTag(postId, tagId) {
@@ -264,6 +265,15 @@ async function getPostById(postId) {
       FROM posts
       WHERE id=$1;
     `, [postId]);
+
+    // THIS IS NEW
+    if (!post) {
+      throw {
+        name: "PostNotFoundError",
+        message: "Could not find a post with that postId"
+      };
+    }
+    // NEWNESS ENDS HERE
 
     const { rows: tags } = await client.query(`
       SELECT tags.*
@@ -307,6 +317,21 @@ async function getPostsByTagName(tagName) {
   }
 } 
 
+async function getUserByUsername(username) {
+  try {
+    const { rows: [user] } = await client.query(`
+      SELECT *
+      FROM users
+      WHERE username=$1;
+    `, [username]);
+
+    return user;
+  } catch (error) {
+    throw error;
+  }
+}
+
+
 module.exports = {  
   client,
   createUser,
@@ -320,5 +345,6 @@ module.exports = {
   addTagsToPost,
   createPostTag,
   getPostById,
-  getPostsByTagName
+  getPostsByTagName,
+  getUserByUsername
 }
