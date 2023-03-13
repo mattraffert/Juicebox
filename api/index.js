@@ -1,3 +1,16 @@
+const PORT = 3000;
+const express = require('express');
+const server = express();
+
+server.listen(PORT, () => {
+  console.log('The server is up on port', PORT)
+});
+
+const apiRouter = express.Router();
+
+const usersRouter = require('./users');
+apiRouter.use('/users', usersRouter);
+
 const jwt = require('jsonwebtoken');
 const { getUserById } = require('../db');
 const { JWT_SECRET } = process.env;
@@ -59,4 +72,4 @@ apiRouter.use((error, req, res, next) => {
      }</h1>`);
   });
   
-  module.exports = apiRouter;
+module.exports = apiRouter;

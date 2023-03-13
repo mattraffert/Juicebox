@@ -6,7 +6,7 @@ var passw = "password"
 var conString = `postgres://${usern}:${passw}@localhost:6543/juicebox`;
 
 // supply the db name and location of the database
-const client = new Client(conString);
+const client = new Client(process.env.DATABASE_URL);
 
 
 async function createUser({ 
